@@ -20,9 +20,11 @@ pipeline {
     steps {
         sh "pkill -f 'demo-0.0.1-SNAPSHOT.jar' || true"
         sh """
-        sudo -u jenkins sh -c 'nohup java -jar target/demo-0.0.1-SNAPSHOT.jar \
-        --server.port=8081 --server.address=0.0.0.0 \
-        > \$WORKSPACE/app.log 2>&1 & disown && echo \$! > \$WORKSPACE/app.pid'
+        nohup java -jar target/demo-0.0.1-SNAPSHOT.jar \
+--server.port=8081 --server.address=0.0.0.0 \
+> $WORKSPACE/app.log 2>&1 & disown
+echo $! > $WORKSPACE/app.pid
+
         """
     }
 }
