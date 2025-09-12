@@ -1,6 +1,12 @@
 pipeline {
     agent any
 
+    environment {
+        APP_PORT = '8081'
+        APP_PID_FILE = "${env.WORKSPACE}/app.pid"
+        APP_LOG_FILE = "${env.WORKSPACE}/app.log"
+    }
+
     stages {
         stage('Checkout') {
             steps {
@@ -10,33 +16,39 @@ pipeline {
 
         stage('Build') {
             steps {
-                // Make sure mvnw is executable
+                // Make mvnw executable
                 sh 'chmod +x mvnw'
-                sh './mvnw clean package -DskipTests'
+
+                // Clean and compile the project
+                sh './mvnw clean compile -DskipTests'
             }
         }
 
-       stage('Deploy') {
-    steps {
-        sh "pkill -f 'demo-0.0.1-SNAPSHOT.jar' || true"
-        sh """
-        nohup java -jar target/demo-0.0.1-SNAPSHOT.jar \
---server.port=8081 --server.address=0.0.0.0 \
-> $WORKSPACE/app.log 2>&1 & disown
-echo $! > $WORKSPACE/app.pid
+        stage('Deploy') {
+            steps {
+                // Kill any previous app instance
+                sh "pkill -f 'spring-boot:run' || true"
 
-        """
-    }
-}
+                // Start app using spring-boot:run in the background
+                sh """
+                nohup ./mvnw spring-boot:run \
+                -Dspring-boot.run.arguments=--server.port=${APP_PORT},--server.address=0.0.0.0 \
+                > ${APP_LOG_FILE} 2>&1 & disown
+                echo \$! > ${APP_PID_FILE}
+                """
+            }
+        }
+
         stage('Verify') {
             steps {
-                // Wait a bit and check if app is running
+                // Wait a few seconds and verify the app is running
                 sh """
                 sleep 5
-                if ps -p \$(cat app.pid) > /dev/null; then
-                  echo '✅ App started successfully'
+                if ps -p \$(cat ${APP_PID_FILE}) > /dev/null; then
+                  echo '✅ App is running'
                 else
                   echo '❌ App failed to start'
+                  cat ${APP_LOG_FILE}
                   exit 1
                 fi
                 """
@@ -46,9 +58,7 @@ echo $! > $WORKSPACE/app.pid
 
     post {
         always {
-            script {
-                echo "Logs available at workspace: ${env.WORKSPACE}/app.log"
-            }
+            echo "Logs available at: ${env.WORKSPACE}/app.log"
         }
     }
 }
