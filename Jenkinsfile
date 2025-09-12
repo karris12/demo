@@ -16,21 +16,16 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
-            steps {
-                // Kill any running instance of the app
-                sh "pkill -f 'demo-0.0.1-SNAPSHOT.jar' || true"
-
-                // Run the app with nohup and redirect logs to Jenkins workspace
-                sh """
-                nohup java -jar target/demo-0.0.1-SNAPSHOT.jar \
-                --server.port=8081 --server.address=0.0.0.0 \
-                > \$(pwd)/app.log 2>&1 &
-                echo \$! > app.pid
-                """
-            }
-        }
-
+       stage('Deploy') {
+    steps {
+        sh "pkill -f 'demo-0.0.1-SNAPSHOT.jar' || true"
+        sh """
+        sudo -u jenkins sh -c 'nohup java -jar target/demo-0.0.1-SNAPSHOT.jar \
+        --server.port=8081 --server.address=0.0.0.0 \
+        > \$WORKSPACE/app.log 2>&1 & disown && echo \$! > \$WORKSPACE/app.pid'
+        """
+    }
+}
         stage('Verify') {
             steps {
                 // Wait a bit and check if app is running
